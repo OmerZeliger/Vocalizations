@@ -2,7 +2,7 @@ function [vocs,baselineTime,filepath,ops] = analyze_vocalization(filepath,ops)
 % handle inputs
 if ~exist('filepath','var') || isempty(filepath)
     %filepath = '/Users/omer/Downloads/T0000009.wav';
-    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','T0000009.wav');
+    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','T0000009.mat');
 end
 if ~exist('ops','var')
     ops = struct();
