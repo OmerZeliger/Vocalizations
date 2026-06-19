@@ -5,8 +5,9 @@ if ~exist('filepath','var') || isempty(filepath)
     filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','T0000009.wav');
 end
 if ~exist('ops','var')
-    ops = struct();
+    ops
 end
+
 
 % seed rng for consistent fitting results
 rng(1997);
@@ -37,7 +38,7 @@ if ~isfield(ops,'formantColors')
     ops.formantColors = {'red',[1 .5 0],'yellow','green','blue',[1 0 1]};
 end
 if ~isfield(ops,'manuallyPickBaseline')
-    ops.manuallyPickBaseline = false;
+    ops.manuallyPickBaseline = true;
 end
 if ~isfield(ops,'fitGaussian')
     ops.fitGaussian = false;
@@ -297,8 +298,6 @@ end
 
 
 %% MANUAL CURATION
-%TODO: add "trimming" gui which lets the user mark where the vocalization is well-fit
-% this shouldn't alter the data, it should just give the timepoints as another variable
 figure;
 for i = 1:length(vocs)
     % plot each formant
