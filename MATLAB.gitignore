@@ -6,6 +6,9 @@
 *.mdl.r*
 *.bak
 
+# Mac files
+.DS_Store
+
 # Derived content-obscured files
 *.p
 
