@@ -91,7 +91,7 @@ if ops.manuallyPickBaseline
     baselineStart = str2num(baselineStart{1});
     baselineTime = baselineStart:baselineStart+numBaselineBins-1;
 else
-    baselineTime = t<=1;
+    baselineTime = t(t<=1);
 end
 
 % identify likely vocalization timing by comparing to baseline (first second of recording)
@@ -313,11 +313,14 @@ end
 figure;
 for i = 1:length(vocs)
     % plot each formant
-    clf; imagesc(vocs(i).Time,f,(vocs(i).SmoothedPower).^.4); hold on;
-    for j = 1:ops.nFormants+1
-        plot(vocs(i).Time(vocs(i).VocalizationOn),...
-            vocs(i).FormantFrequencies(j,vocs(i).VocalizationOn),...
-            'Color',ops.formantColors{j});
+    clf; imagesc(vocs(i).Time,f,(vocs(i).SmoothedPower).^.4);
+    if ops.fitFormants
+        hold on;
+        for j = 1:ops.nFormants+1
+            plot(vocs(i).Time(vocs(i).VocalizationOn),...
+                vocs(i).FormantFrequencies(j,vocs(i).VocalizationOn),...
+                'Color',ops.formantColors{j});
+        end
     end
     hold off;
 

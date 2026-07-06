@@ -29,12 +29,12 @@ for i = 1:height(ratInfo)
             recordingID = ratInfo.REC1NAME(i);
             age = ratInfo.AGEREC1(i);
             scarScore = nan;
-            postTreatment = false;
+            postSurgery = false;
         elseif rec==2
             recordingID = ratInfo.REC2NAME(i);
             age = ratInfo.AGEREC2(i);
             scarScore = ratInfo.SCARSCORE(i);
-            postTreatment = true;
+            postSurgery = true;
         end
         cageNum = ratInfo.CAGENUMBER(i);
         mark = logical(ratInfo.MARK(i));
@@ -49,7 +49,7 @@ for i = 1:height(ratInfo)
             [vocs,baselineTime,filepath,ops] = analyze_vocalization(fullfile(recDirPath,[recordingID '.wav']),ops);
             save(fullfile(resultsPath,resName),...
                 'vocs','baselineTime','filepath','ops',...
-                'recordingID','age','scarScore','postTreatment','cageNum','mark','treatment');
+                'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
         end
     end
 end
