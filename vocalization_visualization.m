@@ -1,7 +1,7 @@
 function vocalization_visualization()
 
 
-[vocs,baselineTime,filepath,ops] = analyze_vocalization('/Users/OZeliger/Desktop/Vocalizations/Recordings/T0000009.wav');
+[vocs,baselineIdx,f,filepath,ops] = analyze_vocalization('/Users/OZeliger/Desktop/Vocalizations/Recordings/T0000009.wav');
 
 wellFit = false(size(vocs));
 vocalization = wellFit;

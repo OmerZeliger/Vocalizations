@@ -1,4 +1,4 @@
-function [vocs,baselineTime,filepath,ops] = analyze_vocalization(filepath,ops)
+function [vocs,baselineIdx,f,filepath,ops] = analyze_vocalization(filepath,ops)
 % handle inputs
 if ~exist('filepath','var') || isempty(filepath)
     %filepath = '/Users/omer/Downloads/T0000009.wav';
@@ -89,15 +89,15 @@ if ops.manuallyPickBaseline
 
     baselineStart = inputdlg('Please enter the background start index from the previous figure:','Background selection');
     baselineStart = str2num(baselineStart{1});
-    baselineTime = baselineStart:baselineStart+numBaselineBins-1;
+    baselineIdx = baselineStart:baselineStart+numBaselineBins-1;
 else
-    baselineTime = t(t<=1);
+    baselineIdx = find(t<=1);
 end
 
 % identify likely vocalization timing by comparing to baseline (first second of recording)
-baseline = mean(smoothPower(:,baselineTime),2) + 5.*std(smoothPower(:,baselineTime),[],2);
+baseline = mean(smoothPower(:,baselineIdx),2) + 5.*std(smoothPower(:,baselineIdx),[],2);
 powerAboveBaseline = smoothPower > baseline;
-backgroundNoise = mean(smoothPower(:,baselineTime),2);
+backgroundNoise = mean(smoothPower(:,baselineIdx),2);
 
 meanFreqIncrease = smoothdata(mean(powerAboveBaseline,1),"gaussian",round(fs*ops.window*ops.overlap*.01));
 vocOnset = find(diff([false meanFreqIncrease>.2])==1);
