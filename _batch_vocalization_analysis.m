@@ -1,5 +1,5 @@
 % set up directory paths
-filepath = fileparts(which("batch_vocalization_analysis.m"));
+filepath = fileparts(which("_batch_vocalization_analysis.m"));
 ratLogPath = fullfile(filepath,"Vocalization_recording_data.xlsx");
 ratInfo = readtable(ratLogPath);
 
@@ -46,9 +46,9 @@ for i = 1:height(ratInfo)
 
         resName = [recordingID '_results'];
         if ~isempty(recordingID) && all(~isnan(recordingID)) && ~any(strcmp({results.name},[resName '.mat'])) % don't redo already analyzed ones
-            [vocs,baselineTime,filepath,ops] = analyze_vocalization(fullfile(recDirPath,[recordingID '.wav']),ops);
+            [vocs,baselineIdx,frequencies,filepath,ops] = analyze_vocalization(fullfile(recDirPath,[recordingID '.wav']),ops);
             save(fullfile(resultsPath,resName),...
-                'vocs','baselineTime','filepath','ops',...
+                'vocs','baselineIdx','frequencies','filepath','ops',...
                 'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
         end
     end

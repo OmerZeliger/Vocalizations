@@ -1,4 +1,4 @@
-filepath = fileparts(which("analyze_processed_vocalizations.m"));
+filepath = fileparts(which("_analyze_processed_vocalizations.m"));
 resultsPath = fullfile(filepath,"_results");
 
 resultFiles = dir(fullfile(resultsPath,"*_results.mat"));
