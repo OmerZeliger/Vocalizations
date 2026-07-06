@@ -268,7 +268,7 @@ for i = 1:length(vocs)
     voc = vocs(i).VocalizationOn;
     
     % total duration
-    vocs(i).Duration = range(vocs(i).Time(voc));
+    vocs(i).Duration = max(vocs(i).Time(voc)) - min(vocs(i).Time(voc));%range(vocs(i).Time(voc));
 
     % total power across all frequencies
     vocs(i).TotalPower = sum(vocs(i).SmoothedPower-backgroundNoise,1);
