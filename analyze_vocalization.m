@@ -24,6 +24,9 @@ end
 if ~isfield(ops,'freqRange')
     ops.freqRange = [1000 100000];
 end
+if ~isfield(ops,'fitFormants')
+    ops.fitFormants = true;
+end
 if ~isfield(ops,'nFormants')
     ops.nFormants = 2;
 end
@@ -121,34 +124,24 @@ for i = 1:length(vocalizationTiming)
     sp = smoothPower(:,voc);
     peak = vocalizationTiming{i}(2);
 
-    %TODO: guess f0 based on distance between peaks?
-    localPeaks = find(islocalmax(sp(:,peak)));
-    peakPowers = sp(localPeaks,peak);
-    [~,idx] = sort(peakPowers);
-    localPeaks = localPeaks(idx);
-    peakFrequencies = f(localPeaks(end-9:end));
+    if ops.fitFormants
+        % guess f0 based on distance between peaks?
+        localPeaks = find(islocalmax(sp(:,peak)));
+        peakPowers = sp(localPeaks,peak);
+        [~,idx] = sort(peakPowers);
+        localPeaks = localPeaks(idx);
+        peakFrequencies = f(localPeaks(end-9:end));
 
-    estimatedF0 = median(diff(sort(peakFrequencies)));
+        estimatedF0 = median(diff(sort(peakFrequencies)));
 
-    % look at chunks of time and track each formant over time
-    [~,edges,chunks] = histcounts(t(voc),t(voc(1)):ops.chunkLength:t(voc(end))+ops.chunkLength);
-    [~,~,peakChunk] = histcounts(t(peak + voc(1) - 1),edges);
+        % look at chunks of time and track each formant over time
+        [~,edges,chunks] = histcounts(t(voc),t(voc(1)):ops.chunkLength:t(voc(end))+ops.chunkLength);
+        [~,~,peakChunk] = histcounts(t(peak + voc(1) - 1),edges);
 
-    roughFormantFrequencies = cell(1,max(chunks));
+        roughFormantFrequencies = cell(1,max(chunks));
 
-    % find formants at vocalization peak
-    chunk = peakChunk;
-    chunkIdx = chunks==chunk;
-    roughFormantFrequencies{chunk} = nan(ops.nFormants+1,sum(chunkIdx));
-    for fid = 1:ops.nFormants+1
-        searchFrequencies = (f > (fid*estimatedF0) - (estimatedF0/2)) & (f < (fid*estimatedF0) + (estimatedF0/2));
-        fridge = tfridge(sp(searchFrequencies,chunkIdx),f(searchFrequencies),0.2);
-        roughFormantFrequencies{chunk}(fid,:) = fridge;
-    end
-    estimatedF0 = roughFormantFrequencies{chunk}(1,end);
-
-    % move forward
-    for chunk = peakChunk+1:max(chunks)
+        % find formants at vocalization peak
+        chunk = peakChunk;
         chunkIdx = chunks==chunk;
         roughFormantFrequencies{chunk} = nan(ops.nFormants+1,sum(chunkIdx));
         for fid = 1:ops.nFormants+1
@@ -157,75 +150,93 @@ for i = 1:length(vocalizationTiming)
             roughFormantFrequencies{chunk}(fid,:) = fridge;
         end
         estimatedF0 = roughFormantFrequencies{chunk}(1,end);
-    end
 
-    % move backward
-    estimatedF0 = roughFormantFrequencies{peakChunk}(1,1);
-    for chunk = peakChunk-1:-1:1
-        chunkIdx = chunks==chunk;
-        roughFormantFrequencies{chunk} = nan(ops.nFormants+1,sum(chunkIdx));
-        for fid = 1:ops.nFormants+1
-            searchFrequencies = (f > (fid*estimatedF0) - (0.4*estimatedF0)) & (f < (fid*estimatedF0) + (0.4*estimatedF0));
-            fridge = tfridge(sp(searchFrequencies,chunkIdx),f(searchFrequencies),0.2);
-            roughFormantFrequencies{chunk}(fid,:) = fridge;
-        end
-        estimatedF0 = roughFormantFrequencies{chunk}(1,1);
-    end
-
-    % concatenate estimated formants
-    roughFormantFrequencies = horzcat(roughFormantFrequencies{:});
-
-    % detect and remove overlaps
-    overlaps = diff(roughFormantFrequencies,1) < roughFormantFrequencies(1,:)./2;
-    for o = 1:size(overlaps,1)
-        % remove overlaps
-        roughFormantFrequencies(o:o+1,overlaps(o,:)) = nan;
-
-        % interpolate between overlaps
-        roughFormantFrequencies = fillmissing(roughFormantFrequencies,'linear',2);
-    end
-
-    % detect each estimated formant's peak frequency
-    formantFrequencies = nan(size(roughFormantFrequencies));
-    formantPower = formantFrequencies;
-    formantSpread = formantFrequencies;
-    for timepoint = 1:length(voc)
-        for formant = 1:ops.nFormants+1
-            searchFrequencies = f > roughFormantFrequencies(formant,timepoint)-(.2*roughFormantFrequencies(1,timepoint)) & ...
-                f < roughFormantFrequencies(formant,timepoint)+(.2*roughFormantFrequencies(1,timepoint));
-            temp = sp(:,timepoint); temp(~searchFrequencies) = nan;
-            [~,idx] = max(temp);
-            formantFrequencies(formant,timepoint) = f(idx);
+        % move forward
+        for chunk = peakChunk+1:max(chunks)
+            chunkIdx = chunks==chunk;
+            roughFormantFrequencies{chunk} = nan(ops.nFormants+1,sum(chunkIdx));
+            for fid = 1:ops.nFormants+1
+                searchFrequencies = (f > (fid*estimatedF0) - (estimatedF0/2)) & (f < (fid*estimatedF0) + (estimatedF0/2));
+                fridge = tfridge(sp(searchFrequencies,chunkIdx),f(searchFrequencies),0.2);
+                roughFormantFrequencies{chunk}(fid,:) = fridge;
+            end
+            estimatedF0 = roughFormantFrequencies{chunk}(1,end);
         end
 
-        formantEdges = mean([0 formantFrequencies(:,timepoint)';formantFrequencies(:,timepoint)' formantFrequencies(end,timepoint)+formantFrequencies(1,timepoint)],1);
-        for formant = 1:ops.nFormants+1
-            % get total power of formant across all of its frequencies
-            searchFrequencies = f >= formantEdges(formant) & f < formantEdges(formant+1);
-            formantPower(formant,timepoint) = sum(sp(searchFrequencies,timepoint) - backgroundNoise(searchFrequencies));
+        % move backward
+        estimatedF0 = roughFormantFrequencies{peakChunk}(1,1);
+        for chunk = peakChunk-1:-1:1
+            chunkIdx = chunks==chunk;
+            roughFormantFrequencies{chunk} = nan(ops.nFormants+1,sum(chunkIdx));
+            for fid = 1:ops.nFormants+1
+                searchFrequencies = (f > (fid*estimatedF0) - (0.4*estimatedF0)) & (f < (fid*estimatedF0) + (0.4*estimatedF0));
+                fridge = tfridge(sp(searchFrequencies,chunkIdx),f(searchFrequencies),0.2);
+                roughFormantFrequencies{chunk}(fid,:) = fridge;
+            end
+            estimatedF0 = roughFormantFrequencies{chunk}(1,1);
+        end
 
-            % get relative spread of formant by fitting a gaussian
-            if ops.fitGaussian
-                try
-                    %TODO: de-crapify
-                    d1 = median(sp(searchFrequencies,timepoint));
-                    %d1 = median(backgroundNoise);
-                    temp = f(searchFrequencies);
-                    [~,b1] = max(sp(searchFrequencies,timepoint)); b1 = temp(b1);
-                    %ft = fittype(sprintf('(a1*exp(-((x-%f)/c1)^2))+%f',b1,d1),'Coefficients',{'a1','c1'});
+        % concatenate estimated formants
+        roughFormantFrequencies = horzcat(roughFormantFrequencies{:});
 
-                    %ft = fittype('(a1*exp(-((x-b1)/c1)^2))+d1','Coefficients',{'a1','b1','c1','d1'});
-                    %TODO: fix known coefficients - height, offset, baseline
-                    %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),'gauss1');
-                    mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint)-d1,'gauss1',...
-                        'StartPoint',[1 b1 200],'Lower',[-Inf -Inf 200],'Upper',[Inf Inf 200]);
-                    %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),ft,'StartPoint',[1 200]);
-                    formantSpread(formant,timepoint) = mdl.c1;
-                catch
-                    formantSpread(formant,timepoint) = missing;
+        % detect and remove overlaps
+        overlaps = diff(roughFormantFrequencies,1) < roughFormantFrequencies(1,:)./2;
+        for o = 1:size(overlaps,1)
+            % remove overlaps
+            roughFormantFrequencies(o:o+1,overlaps(o,:)) = nan;
+
+            % interpolate between overlaps
+            roughFormantFrequencies = fillmissing(roughFormantFrequencies,'linear',2);
+        end
+
+        % detect each estimated formant's peak frequency
+        formantFrequencies = nan(size(roughFormantFrequencies));
+        formantPower = formantFrequencies;
+        formantSpread = formantFrequencies;
+        for timepoint = 1:length(voc)
+            for formant = 1:ops.nFormants+1
+                searchFrequencies = f > roughFormantFrequencies(formant,timepoint)-(.2*roughFormantFrequencies(1,timepoint)) & ...
+                    f < roughFormantFrequencies(formant,timepoint)+(.2*roughFormantFrequencies(1,timepoint));
+                temp = sp(:,timepoint); temp(~searchFrequencies) = nan;
+                [~,idx] = max(temp);
+                formantFrequencies(formant,timepoint) = f(idx);
+            end
+
+            formantEdges = mean([0 formantFrequencies(:,timepoint)';formantFrequencies(:,timepoint)' formantFrequencies(end,timepoint)+formantFrequencies(1,timepoint)],1);
+            for formant = 1:ops.nFormants+1
+                % get total power of formant across all of its frequencies
+                searchFrequencies = f >= formantEdges(formant) & f < formantEdges(formant+1);
+                formantPower(formant,timepoint) = sum(sp(searchFrequencies,timepoint) - backgroundNoise(searchFrequencies));
+
+                % get relative spread of formant by fitting a gaussian
+                if ops.fitGaussian
+                    try
+                        %TODO: de-crapify
+                        d1 = median(sp(searchFrequencies,timepoint));
+                        %d1 = median(backgroundNoise);
+                        temp = f(searchFrequencies);
+                        [~,b1] = max(sp(searchFrequencies,timepoint)); b1 = temp(b1);
+                        %ft = fittype(sprintf('(a1*exp(-((x-%f)/c1)^2))+%f',b1,d1),'Coefficients',{'a1','c1'});
+
+                        %ft = fittype('(a1*exp(-((x-b1)/c1)^2))+d1','Coefficients',{'a1','b1','c1','d1'});
+                        %TODO: fix known coefficients - height, offset, baseline
+                        %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),'gauss1');
+                        mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint)-d1,'gauss1',...
+                            'StartPoint',[1 b1 200],'Lower',[-Inf -Inf 200],'Upper',[Inf Inf 200]);
+                        %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),ft,'StartPoint',[1 200]);
+                        formantSpread(formant,timepoint) = mdl.c1;
+                    catch
+                        formantSpread(formant,timepoint) = nan;
+                    end
+                else
+                    formantSpread(formant,timepoint) = nan;
                 end
             end
         end
+    else
+        formantFrequencies = nan;
+        formantPower = nan;
+        formantSpread = nan;
     end
 
     % note timepoints when vocalization is too quiet relative to baseline
@@ -243,7 +254,7 @@ for i = 1:length(vocalizationTiming)
     % save data
     vocs(end+1).FormantFrequencies = formantFrequencies;
     vocs(end).Time = t(voc);
-    vocs(end).RawPower = sp;
+    vocs(end).SmoothedPower = sp;
     vocs(end).VocalizationOn = vocOn;
     vocs(end).FormantPower = formantPower;
     vocs(end).FormantSpread = formantSpread;
@@ -260,7 +271,7 @@ for i = 1:length(vocs)
     vocs(i).Duration = range(vocs(i).Time(voc));
 
     % total power across all frequencies
-    vocs(i).TotalPower = sum(vocs(i).RawPower-backgroundNoise,1);
+    vocs(i).TotalPower = sum(vocs(i).SmoothedPower-backgroundNoise,1);
 
     % peak to noise ratio
     % minimum distance between peaks = 800 Hz (theoretical minimum frequency of rat vocalization?)
@@ -268,7 +279,7 @@ for i = 1:length(vocs)
     minDist = find(f-f(1) <= 800,1,'last');
     for j = 1:length(vocs(i).VocalizationOn)
         % first find peaks
-        [peaks,locs] = findpeaks(vocs(i).RawPower(:,j) - backgroundNoise,"MinPeakDistance",minDist,"SortStr","descend");
+        [peaks,locs] = findpeaks(vocs(i).SmoothedPower(:,j) - backgroundNoise,"MinPeakDistance",minDist,"SortStr","descend");
         peaks = peaks(1:ops.nPeaks); locs = locs(1:ops.nPeaks);
         [locs,idx] = sort(locs); peaks = peaks(idx);
 
@@ -278,7 +289,7 @@ for i = 1:length(vocs)
         for k = 1:ops.nPeaks+1
             searchIdx = edges(k):edges(k+1);
             temp = nan(size(backgroundNoise));
-            temp(searchIdx) = vocs(i).RawPower(searchIdx,j) - backgroundNoise(searchIdx);
+            temp(searchIdx) = vocs(i).SmoothedPower(searchIdx,j) - backgroundNoise(searchIdx);
             [valley(k),valleyLoc(k)] = min(temp);
         end
 
@@ -302,7 +313,7 @@ end
 figure;
 for i = 1:length(vocs)
     % plot each formant
-    clf; imagesc(vocs(i).Time,f,(vocs(i).RawPower).^.4); hold on;
+    clf; imagesc(vocs(i).Time,f,(vocs(i).SmoothedPower).^.4); hold on;
     for j = 1:ops.nFormants+1
         plot(vocs(i).Time(vocs(i).VocalizationOn),...
             vocs(i).FormantFrequencies(j,vocs(i).VocalizationOn),...
@@ -310,7 +321,11 @@ for i = 1:length(vocs)
     end
     hold off;
 
-    vocs(i).ManualCuration = questdlg('Pick vocalization quality:','Manual curation','Well-fit','Poorly-fit','Noise','Cancel');
+    if ops.fitFormants
+        vocs(i).ManualCuration = questdlg('Pick vocalization quality:','Manual curation','Well-fit','Poorly-fit','Noise','Cancel');
+    else
+        vocs(i).ManualCuration = questdlg('Pick vocalization quality:','Manual curation','Vocalization','Noise','Cancel');
+    end
 end
 
 end

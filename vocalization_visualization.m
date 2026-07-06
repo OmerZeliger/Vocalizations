@@ -1,13 +1,13 @@
 function vocalization_visualization()
 
 
-[vocs,baselineTime,filepath,ops] = analyze_vocalization();
+[vocs,baselineTime,filepath,ops] = analyze_vocalization('/Users/OZeliger/Desktop/Vocalizations/Recordings/T0000009.wav');
 
 wellFit = false(size(vocs));
 vocalization = wellFit;
 for i = 1:length(vocs)
     wellFit(i) = strcmp(vocs(i).ManualCuration,'Well-fit');
-    vocalization(i) = wellFit(i) || strcmp(vocs(i).ManualCuration,'Poorly-fit');
+    vocalization(i) = wellFit(i) || strcmp(vocs(i).ManualCuration,'Poorly-fit') || strcmp(vocs(i).ManualCuration,'Vocalization');
 end
 
 % get summary statistics per vocalization
@@ -26,8 +26,8 @@ end
 
 
 
-subplot(1,2,1);histogram(peakIntensity(vocalization),10);title('Peak intensity');
-subplot(1,2,2);histogram(meanSNR(vocalization),50);title('peak-to-noise ratio');
+subplot(1,2,1);hold on;histogram(peakIntensity(vocalization),10);title('Peak intensity');
+subplot(1,2,2);hold on;histogram(meanSNR(vocalization),50);title('peak-to-noise ratio');
 
 
 

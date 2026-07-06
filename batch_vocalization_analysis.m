@@ -13,6 +13,7 @@ ops.window = .01;
 ops.overlap = .8;
 ops.freqs = [];
 ops.freqRange = [1000 100000];
+ops.fitFormants = false;
 ops.nFormants = 2;
 ops.minVocalizationLength = 0.2;
 ops.chunkLength = 0.01;
