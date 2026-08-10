@@ -4,7 +4,7 @@ ratLogPath = fullfile(filepath,"Vocalization_recording_data.xlsx");
 ratInfo = readtable(ratLogPath);
 
 resultsPath = fullfile(filepath,"_results");
-results = dir(fullfile(resultsPath,"*.wav"));
+results = dir(fullfile(resultsPath,"*.mat"));
 
 recDirPath = fullfile(filepath,"Recordings");
 
@@ -24,33 +24,39 @@ ops.nPeaks = 10;
 
 % iterate over every rat
 for i = 1:height(ratInfo)
-    for rec = 1:2
-        if rec==1
-            recordingID = ratInfo.REC1NAME(i);
-            age = ratInfo.AGEREC1(i);
-            scarScore = nan;
-            postSurgery = false;
-        elseif rec==2
-            recordingID = ratInfo.REC2NAME(i);
-            age = ratInfo.AGEREC2(i);
-            scarScore = ratInfo.SCARSCORE(i);
-            postSurgery = true;
-        end
-        cageNum = ratInfo.CAGENUMBER(i);
-        mark = logical(ratInfo.MARK(i));
-        treatment = logical(ratInfo.TREATMENT_(i));
-        try
-            recordingID = recordingID{:};
-        catch
-        end
+    try
+        for rec = 1:2
+            if rec==1
+                recordingID = ratInfo.REC1NAME(i);
+                age = ratInfo.AGEREC1(i);
+                scarScore = nan;
+                postSurgery = false;
+            elseif rec==2
+                recordingID = ratInfo.REC2NAME(i);
+                age = ratInfo.AGEREC2(i);
+                scarScore = ratInfo.SCARSCORE(i);
+                postSurgery = true;
+            end
+            cageNum = ratInfo.CAGENUMBER(i);
+            mark = logical(ratInfo.MARK(i));
+            treatment = logical(ratInfo.TREATMENT_(i));
+            try
+                recordingID = recordingID{:};
+            catch
+            end
 
-        resName = [recordingID '_results'];
-        if ~isempty(recordingID) && all(~isnan(recordingID)) && ~any(strcmp({results.name},[resName '.mat'])) % don't redo already analyzed ones
-            [vocs,baselineIdx,frequencies,filepath,ops] = analyze_vocalization(fullfile(recDirPath,[recordingID '.wav']),ops);
-            save(fullfile(resultsPath,resName),...
-                'vocs','baselineIdx','frequencies','filepath','ops',...
-                'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
+            resName = [recordingID(1:end-4) '_results'];
+            if ~isempty(recordingID) && all(~isnan(recordingID)) && ...
+                    exist(fullfile(recDirPath,recordingID),'file') && ...% only analyze recordings that exist...
+                    ~any(strcmp({results.name},[resName '.mat'])) % don't redo already analyzed ones
+
+                [vocs,baselineIdx,frequencies,filepath,ops] = analyze_vocalization(fullfile(recDirPath,recordingID),ops);
+                save(fullfile(resultsPath,resName),...
+                    'vocs','baselineIdx','frequencies','filepath','ops',...
+                    'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
+            end
         end
+    catch
     end
 end
 

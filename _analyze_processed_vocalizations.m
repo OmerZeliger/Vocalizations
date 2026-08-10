@@ -19,4 +19,3 @@ for i = 1:length(resultFiles)
     allData = [allData temp];
 end
 
-
