@@ -39,7 +39,7 @@ for i = 1:height(ratInfo)
             end
             cageNum = ratInfo.CAGENUMBER(i);
             mark = logical(ratInfo.MARK(i));
-            treatment = logical(ratInfo.TREATMENT_(i));
+            treatment = ratInfo.TREATMENT_(i);
             try
                 recordingID = recordingID{:};
             catch
