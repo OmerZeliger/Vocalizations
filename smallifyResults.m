@@ -5,7 +5,7 @@ resultsPath = fullfile(filepath,"_results");
 results = dir(fullfile(resultsPath,"*.mat"));
 
 largeRecordings = results([results.bytes]./1e6 > 100);
-newVocLength = 15;
+newVocLength = 8; % was 15
 
 for i = 1:length(largeRecordings)
     originalName = largeRecordings(i).name;
@@ -19,8 +19,8 @@ for i = 1:length(largeRecordings)
         vocs = originalResults.vocs((newVocLength*(j-1))+1:temp);
 
         save(fullfile(resultsPath,[newNameBase '_part' num2str(j)]),...
-            'vocs','baselineIdx','frequencies','filepath','ops',...
-            'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
+            'vocs','baselineIdx','frequencies','filepath','ops','recordingID','age',...
+            'postSurgery','cageNum','mark','treatment','controlGel','decorinGel');
     end
 
     movefile(fullfile(resultsPath,originalName),fullfile(resultsPath,['BIG_' originalName]));
