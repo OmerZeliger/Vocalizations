@@ -2,7 +2,7 @@ function [vocs,baselineIdx,f,filepath,ops] = analyze_vocalization(filepath,ops)
 % handle inputs
 if ~exist('filepath','var') || isempty(filepath)
     %filepath = '/Users/omer/Downloads/T0000009.wav';
-    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','T0000009.mat');
+    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','marked_857513_260828.wav');
 end
 if ~exist('ops','var')
     ops = struct();
@@ -25,7 +25,7 @@ if ~isfield(ops,'freqRange')
     ops.freqRange = [1000 100000];
 end
 if ~isfield(ops,'fitFormants')
-    ops.fitFormants = true;
+    ops.fitFormants = false;
 end
 if ~isfield(ops,'nFormants')
     ops.nFormants = 2;
@@ -301,6 +301,11 @@ for i = 1:length(vocs)
 
         peakToNoiseRatio(j) = peakAOC/valleyAOC;
     end
+    % figure;
+    % subplot(2,1,1);
+    % imagesc(sqrt(vocs(i).SmoothedPower(:,vocs(i).VocalizationOn)))
+    % subplot(2,1,2);
+    % plot(peakToNoiseRatio(vocs(i).VocalizationOn))
     vocs(i).PeakToNoiseRatio = peakToNoiseRatio;
 end
 

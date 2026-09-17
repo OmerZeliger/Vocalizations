@@ -2,6 +2,7 @@
 filepath = fileparts(which("_batch_vocalization_analysis.m"));
 ratLogPath = fullfile(filepath,"Vocalization_recording_data.xlsx");
 ratInfo = readtable(ratLogPath);
+ratInfo = removevars(ratInfo,'SCARSCORE');
 
 resultsPath = fullfile(filepath,"_results");
 results = dir(fullfile(resultsPath,"*.mat"));
@@ -18,7 +19,7 @@ ops.nFormants = 2;
 ops.minVocalizationLength = 0.2;
 ops.chunkLength = 0.01;
 ops.formantColors = {'red',[1 .5 0],'yellow','green','blue',[1 0 1]};
-ops.manuallyPickBaseline = false;
+ops.manuallyPickBaseline = true;
 ops.fitGaussian = false;
 ops.nPeaks = 10;
 
@@ -29,17 +30,17 @@ for i = 1:height(ratInfo)
             if rec==1
                 recordingID = ratInfo.REC1NAME(i);
                 age = ratInfo.AGEREC1(i);
-                scarScore = nan;
                 postSurgery = false;
             elseif rec==2
                 recordingID = ratInfo.REC2NAME(i);
                 age = ratInfo.AGEREC2(i);
-                scarScore = ratInfo.SCARSCORE(i);
                 postSurgery = true;
             end
             cageNum = ratInfo.CAGENUMBER(i);
             mark = logical(ratInfo.MARK(i));
             treatment = ratInfo.TREATMENT_(i);
+            controlGel = ratInfo.EmptyGel(i);
+            decorinGel = ratInfo.DcnGel(i);
             try
                 recordingID = recordingID{:};
             catch
@@ -53,7 +54,7 @@ for i = 1:height(ratInfo)
                 [vocs,baselineIdx,frequencies,filepath,ops] = analyze_vocalization(fullfile(recDirPath,recordingID),ops);
                 save(fullfile(resultsPath,resName),...
                     'vocs','baselineIdx','frequencies','filepath','ops',...
-                    'recordingID','age','scarScore','postSurgery','cageNum','mark','treatment');
+                    'recordingID','age','postSurgery','controlGel','decorinGel','cageNum','mark','treatment');
             end
         end
     catch
