@@ -1,4 +1,5 @@
-filepath = fileparts(which("_analyze_processed_vocalizations.m"));
+function analyze_processed_vocalizations()
+filepath = fileparts(which("analyze_processed_vocalizations.m"));
 resultsPath = fullfile(filepath,"_results");
 
 resultFiles = dir(fullfile(resultsPath,"*_results*.mat"));
@@ -9,19 +10,19 @@ for i = 1:length(resultFiles)
     
     % append experimental info to vocalizations
     temp = dat.vocs;
-    temp = rmfield(temp,{'SmoothedPower','Time'});
+    %temp = rmfield(temp,{'SmoothedPower','Time'});
     [temp.Age] = deal(dat.age);
     [temp.RecordingID] = deal(dat.recordingID);
     [temp.ControlGel] = deal(dat.controlGel);
     [temp.DecorinGel] = deal(dat.decorinGel);
     [temp.Treatment] = deal(dat.treatment);
     [temp.PostSurgery] = deal(dat.postSurgery);
+    vocTimes = {dat.vocs.Time}; vocStart = cellfun(@(X) X(1),vocTimes,'UniformOutput',false);
+    [temp.StartTime] = vocStart{:};
 
     % concatenate to table with all vocalizations
     allData = [allData temp];
 end
-
-
 
 
 
@@ -38,6 +39,95 @@ totalPower = cellfun(@(X,T) X(T),totalPower,vocOn,'UniformOutput',false);
 peakToNoise = {allData.PeakToNoiseRatio};
 peakToNoise = cellfun(@(X,T) X(T),peakToNoise,vocOn,'UniformOutput',false);
 
+%% plot hoarseness progression as session progresses
+sessions = unique({allData.RecordingID});
+for i = 1:length(sessions)
+    figure;
+    sessionVocs = strcmp({allData.RecordingID},sessions{i});
+    useableVocs = sessionVocs & vocalization;
+
+    subplot(1,2,1);
+    medianPower = cellfun(@(X) median(X),totalPower(useableVocs));
+    scatter([allData(useableVocs).StartTime],medianPower);
+    title(sessions{i});
+
+    subplot(1,2,2);
+    propHoarse = cellfun(@(X) mean(X<1000),peakToNoise(useableVocs));
+    scatter([allData(useableVocs).StartTime],propHoarse);
+    title(sessions{i});
+end
+
+%% plot change in hoarseness in first 10 vocalizations vs number of vocalizations in first session
+ratID = cellfun(@(X) strsplit(X,'_'),{allData.RecordingID},'UniformOutput',false);
+ratID = cellfun(@(X) string([X{1:2}]),ratID);
+rats = unique(ratID);
+hoarseness = nan(length(rats),2);
+loudness = hoarseness;
+numVocs = hoarseness;
+scar = hoarseness;
+for i = 1:length(rats)
+    ratVocs = strcmp(ratID,rats(i));
+    for j = 1:2
+        sessionVocs = ratVocs & vocalization & [allData.PostSurgery]==logical(j-1);
+        if sum(sessionVocs) < 10
+            break;
+        end
+        useableVocs = find(sessionVocs,10,'first');
+        hoarseness(i,j) = median(cellfun(@(X) mean(X<1000),peakToNoise(useableVocs)));
+        loudness(i,j) = median(cellfun(@(X) median(X),totalPower(useableVocs)));
+        numVocs(i,j) = sum(sessionVocs);
+        scar(i,j) = allData(useableVocs(1)).Treatment;
+    end
+end
+
+figure; subplot(1,2,1); hold on;
+for t = 0:1
+    curr = scar(:,1) == t;
+    scatter(numVocs(curr,1),diff(hoarseness(curr,:),[],2),'filled');
+end
+hold off;
+
+subplot(1,2,2); hold on;
+for t = 0:1
+    curr = scar(:,1) == t;
+    scatter(numVocs(curr,1),diff(loudness(curr,:),[],2),'filled');
+end
+hold off;
+
+
+
+%%
+
+
+
+for i = 1:length(rats)
+    ratVocs = strcmp(ratID,rats(i));
+    for j = 1:2
+        sessionVocs = ratVocs & vocalization & [allData.PostSurgery]==logical(j-1);
+        if sum(sessionVocs) < 10
+            break;
+        end
+        useableVocs = find(sessionVocs,10,'first');
+        hoarseness(i,j) = median(cellfun(@(X) mean(X<1000),peakToNoise(useableVocs)));
+        loudness(i,j) = median(cellfun(@(X) median(X),totalPower(useableVocs)));
+        numVocs(i,j) = sum(sessionVocs);
+        scar(i,j) = allData(useableVocs(1)).Treatment;
+    end
+end
+
+figure; subplot(1,2,1); hold on;
+for t = 0:1
+    curr = scar(:,1) == t;
+    scatter(numVocs(curr,1),hoarseness(curr,2),'filled');
+end
+hold off;
+
+subplot(1,2,2); hold on;
+for t = 0:1
+    curr = scar(:,1) == t;
+    scatter(numVocs(curr,1),diff(loudness(curr,:),[],2),'filled');
+end
+hold off;
 
 %%
 % maximum vocalization power summed across all frequencies
