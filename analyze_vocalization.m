@@ -209,7 +209,7 @@ if ops.fitFormants
         segmentsOn = find(diff([false vocs(i).PeakToNoiseRatio > ops.hoarseCutoff]) == 1);
         segmentsOff = find(diff([vocs(i).PeakToNoiseRatio > ops.hoarseCutoff false]) == -1);
         segments = [segmentsOn' segmentsOff'];
-        segments(diff(segments,[],2)<5,:) = [];
+        segments(diff(segments,[],2) < sum(t<=ops.chunkLength),:) = []; % if the segment is less than a single chunk, don't fit
         for j = 1:size(segments,1)
             segment = segments(j,1):segments(j,2);
             sp = smoothPower(:,voc(segment));
@@ -292,7 +292,9 @@ if ops.fitFormants
                     formantFrequencies(formant,segment(timepoint)) = f(idx);
                 end
 
-                formantEdges = mean([0 formantFrequencies(:,segment(timepoint))';formantFrequencies(:,segment(timepoint))' formantFrequencies(end,segment(timepoint))+formantFrequencies(1,segment(timepoint))],1);
+                formantEdges = mean([0 formantFrequencies(:,segment(timepoint))'; ...
+                    formantFrequencies(:,segment(timepoint))' ...
+                    formantFrequencies(end,segment(timepoint))+formantFrequencies(1,segment(timepoint))],1);
                 for formant = 1:ops.nFormants+1
                     % get total power of formant across all of its frequencies
                     searchFrequencies = f >= formantEdges(formant) & f < formantEdges(formant+1);
