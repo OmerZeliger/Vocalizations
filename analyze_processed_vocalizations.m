@@ -8,27 +8,29 @@ allData = struct([]);
 for i = 1:length(resultFiles)
     dat = load(fullfile(resultsPath,resultFiles(i).name));
     
-    % append experimental info to vocalizations
-    temp = dat.vocs;
-    %temp = rmfield(temp,{'SmoothedPower','Time'});
-    [temp.Age] = deal(dat.age);
-    [temp.RecordingID] = deal(dat.recordingID);
-    [temp.ControlGel] = deal(dat.controlGel);
-    [temp.DecorinGel] = deal(dat.decorinGel);
-    [temp.Treatment] = deal(dat.treatment);
-    [temp.PostSurgery] = deal(dat.postSurgery);
-    vocTimes = {dat.vocs.Time}; vocStart = cellfun(@(X) X(1),vocTimes,'UniformOutput',false);
-    [temp.StartTime] = vocStart{:};
+    if ~isempty(dat.vocs)
+        % append experimental info to vocalizations
+        temp = dat.vocs;
+        %temp = rmfield(temp,{'SmoothedPower','Time'});
+        [temp.Age] = deal(dat.age);
+        [temp.RecordingID] = deal(dat.recordingID);
+        [temp.ControlGel] = deal(dat.controlGel);
+        [temp.DecorinGel] = deal(dat.decorinGel);
+        [temp.Treatment] = deal(dat.treatment);
+        [temp.PostSurgery] = deal(dat.postSurgery);
+        vocTimes = {dat.vocs.Time}; vocStart = cellfun(@(X) X(1),vocTimes,'UniformOutput',false);
+        [temp.StartTime] = vocStart{:};
 
-    % concatenate to table with all vocalizations
-    allData = [allData temp];
+        % concatenate to table with all vocalizations
+        allData = [allData temp];
+    end
 end
 
 
 
 %% plot pre vs post-surgery
 postSurgery = logical([allData.PostSurgery]);
-vocalization = strcmp({allData.ManualCuration},'Vocalization');
+vocalization = strcmp({allData.ManualCuration},'Vocalization') | strcmp({allData.ManualCuration},'Well-fit') | strcmp({allData.ManualCuration},'Poorly-fit');
 treatment = double([allData.Treatment]);
 treatmentTypes = unique(treatment);
 
@@ -98,23 +100,6 @@ hold off;
 
 %%
 
-
-
-for i = 1:length(rats)
-    ratVocs = strcmp(ratID,rats(i));
-    for j = 1:2
-        sessionVocs = ratVocs & vocalization & [allData.PostSurgery]==logical(j-1);
-        if sum(sessionVocs) < 10
-            break;
-        end
-        useableVocs = find(sessionVocs,10,'first');
-        hoarseness(i,j) = median(cellfun(@(X) mean(X<1000),peakToNoise(useableVocs)));
-        loudness(i,j) = median(cellfun(@(X) median(X),totalPower(useableVocs)));
-        numVocs(i,j) = sum(sessionVocs);
-        scar(i,j) = allData(useableVocs(1)).Treatment;
-    end
-end
-
 figure; subplot(1,2,1); hold on;
 for t = 0:1
     curr = scar(:,1) == t;
@@ -125,13 +110,14 @@ hold off;
 subplot(1,2,2); hold on;
 for t = 0:1
     curr = scar(:,1) == t;
-    scatter(numVocs(curr,1),diff(loudness(curr,:),[],2),'filled');
+    scatter(numVocs(curr,1),loudness(curr,2),'filled');
 end
 hold off;
 
 %%
 % maximum vocalization power summed across all frequencies
 figure;
+peakPower = {};
 % pre-surgery
 ax(1) = subplot(1,2,1); hold on;
 for i = 1:length(treatmentTypes)
@@ -165,6 +151,7 @@ linkaxes(ax(1:2),'y');
 
 % median vocalization power
 figure;
+medianPower = {};
 % pre-surgery
 ax(1) = subplot(1,2,1); hold on;
 for i = 1:length(treatmentTypes)
@@ -199,28 +186,29 @@ linkaxes(ax(1:2),'y');
 
 % median peak-to-noise ratio
 figure;
+medianPNR = {};
 % pre-surgery
 ax(1) = subplot(1,2,1); hold on;
-for i = 1:length(treatmentTypes)
-    currentTreatment = treatmentTypes(i);
+for i = 1%:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i); currentTreatment = 1;
 
-    medianPNR{1,i} = cellfun(@(X) median(X),peakToNoise(~postSurgery & vocalization & treatment==currentTreatment));
+    medianPNR{1,i} = cellfun(@(X) median(X),peakToNoise(~postSurgery & vocalization));
 
-    boxplot(medianPNR{1,i},Positions=currentTreatment);
-    scatter(currentTreatment*ones(size(medianPNR{1,i})),medianPNR{1,i});
+    boxplot(log(medianPNR{1,i}),Positions=currentTreatment);
+    scatter(currentTreatment*ones(size(medianPNR{1,i})),log(medianPNR{1,i}));
 end
 hold off;
 
 
 % post-surgery
 ax(2) = subplot(1,2,2); hold on;
-for i = 1:length(treatmentTypes)
-    currentTreatment = treatmentTypes(i);
+for i = 1%:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i); currentTreatment = 1;
 
-    medianPNR{2,i} = cellfun(@(X) median(X),peakToNoise(postSurgery & vocalization & treatment==currentTreatment));
+    medianPNR{2,i} = cellfun(@(X) median(X),peakToNoise(postSurgery & vocalization));
 
-    boxplot(medianPNR{2,i},Positions=currentTreatment);
-    scatter(currentTreatment*ones(size(medianPNR{2,i})),medianPNR{2,i});
+    boxplot(log(medianPNR{2,i}),Positions=currentTreatment);
+    scatter(currentTreatment*ones(size(medianPNR{2,i})),log(medianPNR{2,i}));
 end
 hold off;
 linkaxes(ax(1:2),'y');
@@ -228,15 +216,16 @@ linkaxes(ax(1:2),'y');
 
 %%
 
-% proportion of vocalization hoarse (hoarse: peak-to-trough < 1000)
-hoarseCutoff = 1000;
+% proportion of vocalization hoarse (hoarse: peak-to-trough < 200)
+hoarseCutoff = 200;
 figure;
+propHoarse = {};
 % pre-surgery
 ax(1) = subplot(1,2,1); hold on;
-for i = 1:length(treatmentTypes)
-    currentTreatment = treatmentTypes(i);
+for i = 1%:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i); currentTreatment = 1;
 
-    propHoarse{1,i} = cellfun(@(X) mean(X<hoarseCutoff),peakToNoise(~postSurgery & vocalization & treatment==currentTreatment));
+    propHoarse{1,i} = cellfun(@(X) mean(X<hoarseCutoff),peakToNoise(~postSurgery & vocalization));
 
     boxplot(propHoarse{1,i},Positions=currentTreatment);
     scatter(currentTreatment*ones(size(propHoarse{1,i})),propHoarse{1,i});
@@ -246,13 +235,51 @@ hold off;
 
 % post-surgery
 ax(2) = subplot(1,2,2); hold on;
-for i = 1:length(treatmentTypes)
-    currentTreatment = treatmentTypes(i);
+for i = 1%:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i); currentTreatment = 1;
 
-    propHoarse{2,i} = cellfun(@(X) mean(X<hoarseCutoff),peakToNoise(postSurgery & vocalization & treatment==currentTreatment));
+    propHoarse{2,i} = cellfun(@(X) mean(X<hoarseCutoff),peakToNoise(postSurgery & vocalization));
 
     boxplot(propHoarse{2,i},Positions=currentTreatment);
     scatter(currentTreatment*ones(size(propHoarse{2,i})),propHoarse{2,i});
 end
 hold off;
 linkaxes(ax(1:2),'y');
+
+
+%%
+
+% vocalization duration
+figure;
+duration = {};
+% pre-surgery
+ax(1) = subplot(1,2,1); hold on;
+for i = 1:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i);
+
+    duration{1,i} = cellfun(@(X) length(X),peakToNoise(~postSurgery & vocalization & treatment==currentTreatment));
+
+    boxplot(duration{1,i},Positions=currentTreatment);
+    scatter(currentTreatment*ones(size(duration{1,i})),duration{1,i});
+end
+hold off;
+
+
+% post-surgery
+ax(2) = subplot(1,2,2); hold on;
+for i = 1:length(treatmentTypes)
+    currentTreatment = treatmentTypes(i);
+
+    duration{2,i} = cellfun(@(X) length(X),peakToNoise(postSurgery & vocalization & treatment==currentTreatment));
+
+    boxplot(duration{2,i},Positions=currentTreatment);
+    scatter(currentTreatment*ones(size(duration{2,i})),duration{2,i});
+end
+hold off;
+linkaxes(ax(1:2),'y');
+
+
+%% try looking at fundamental
+
+
+%% try looking at gaussian fit spread of fundamental

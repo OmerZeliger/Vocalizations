@@ -1,9 +1,8 @@
 function [vocs,baselineIdx,f,filepath,ops] = analyze_vocalization(filepath,ops)
-
 % handle inputs
 if ~exist('filepath','var') || isempty(filepath)
     %filepath = '/Users/omer/Downloads/T0000009.wav';
-    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','marked_857513_260828.wav');
+    filepath = fullfile(fileparts(which("analyze_vocalization.m")),'Recordings','marked_853626_260625.wav');
 end
 if ~exist('ops','var')
     ops = struct();
@@ -44,21 +43,33 @@ if ~isfield(ops,'manuallyPickBaseline')
     ops.manuallyPickBaseline = false;
 end
 if ~isfield(ops,'fitGaussian')
-    ops.fitGaussian = false;
+    ops.fitGaussian = true;
 end
 if ~isfield(ops,'nPeaks')
     ops.nPeaks = 10;
 end
 if ~isfield(ops,'hoarseCutoff')
-    ops.hoarseCutoff = 500;
+    ops.hoarseCutoff = 200;
+end
+if ~isfield(ops,'gainAdj')
+    ops.gainAdj = 1; % multiply y by this number for comparing across recordings with different gains
+end
+if ~isfield(ops,'clip')
+    ops.clip = false; % after gain adjustment, clip values >1 or <-1
 end
 
+
 % load data
-[y,fs] = audioread(filepath);
+[wf,fs] = audioread(filepath);
+wf = wf .* ops.gainAdj;
+if ops.clip
+    wf(wf>1) = 1;
+    wf(wf<-1) = -1;
+end
 
 
 % create spectrogram
-[~,f,t,pwr] = spectrogram(y,round(fs*ops.window),round(fs*ops.window * ops.overlap),ops.freqs,fs);
+[~,f,t,pwr] = spectrogram(wf,round(fs*ops.window),round(fs*ops.window * ops.overlap),ops.freqs,fs);
 
 % cut out frequency ranges outside of ops.freqrange
 pwr(f<ops.freqRange(1) | f>ops.freqRange(2),:) = [];
@@ -67,14 +78,14 @@ f(f<ops.freqRange(1) | f>ops.freqRange(2)) = [];
 % smooth time-wise
 smoothPower = smoothdata(pwr,2,"gaussian",round(fs*ops.window*ops.overlap*.003));
 % smooth frequency-wise
-smoothPower = smoothdata(smoothPower,1,"gaussian",6);
+smoothPower = smoothdata(smoothPower,1,"gaussian",3);
 
 % option to pick baseline period through gui
 if ops.manuallyPickBaseline
     numBaselineBins = 1/diff(t(1:2));
     fig = figure(999);
     ax = gca();
-    imagesc(ax,t,f,sqrt(smoothPower));
+    imagesc(ax,t,f,log(smoothPower));
     tit = title('Use the slider to pick a quiet period as baseline: 1');
     y = ylim;
 
@@ -191,11 +202,18 @@ for i = 1:length(vocs)
     % figure; subplot(3,1,1); plot(y(round(vocs(i).Time(1)*fs):round(vocs(i).Time(end)*fs)));
     % subplot(3,1,2); imagesc(log(vocs(i).SmoothedPower));
     % subplot(3,1,3); plot(peakToNoiseRatio);
+
+    clipped = false(size(vocs(i).Time));
+    for j = 1:length(vocs(i).Time)
+        yIdx = round(fs * [vocs(i).Time(j)-(ops.window/2) vocs(i).Time(j)+(ops.window/2)]);
+        yIdx(1) = max(yIdx(1),1);
+        clipped(j) = any(ops.gainAdj-abs(wf(yIdx(1):yIdx(2))) < (0.0001 * ops.gainAdj));
+    end
+    vocs(i).Clipped = clipped;
 end
 
 
 %% FORMANT FITTING
-%TODO: only fit where vocalization isn't too hoarse, and fit each unhoarse section individually
 if ops.fitFormants
     for i = 1:length(vocs)
         fprintf('Fitting vocalization %d of %d\n',i,length(vocalizationTiming));
@@ -223,6 +241,9 @@ if ops.fitFormants
             peakFrequencies = f(localPeaks(end-9:end));
 
             estimatedF0 = median(diff(sort(peakFrequencies)));
+
+            % make sure estimated frequency isn't below the measured frequencies
+            estimatedF0 = max(estimatedF0,min(f)); estimatedF0 = min(estimatedF0,max(f));
 
             % look at chunks of time and track each formant over time
             [~,edges,chunks] = histcounts(t(voc(segment)),t(voc(segment(1))):ops.chunkLength:t(voc(segment(end)))+ops.chunkLength);
@@ -306,15 +327,18 @@ if ops.fitFormants
                             %TODO: de-crapify
                             d1 = median(sp(searchFrequencies,timepoint));
                             %d1 = median(backgroundNoise);
-                            temp = f(searchFrequencies);
-                            [~,b1] = max(sp(searchFrequencies,timepoint)); b1 = temp(b1);
+                            %temp = f(searchFrequencies);
+                            %[a1,b1] = max(sp(searchFrequencies,timepoint)); b1 = temp(b1);
                             %ft = fittype(sprintf('(a1*exp(-((x-%f)/c1)^2))+%f',b1,d1),'Coefficients',{'a1','c1'});
 
                             %ft = fittype('(a1*exp(-((x-b1)/c1)^2))+d1','Coefficients',{'a1','b1','c1','d1'});
                             %TODO: fix known coefficients - height, offset, baseline
                             %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),'gauss1');
-                            mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint)-d1,'gauss1',...
-                                'StartPoint',[1 b1 200],'Lower',[-Inf -Inf 200],'Upper',[Inf Inf 200]);
+                            % mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint)-d1,'gauss1',...
+                            %     'StartPoint',[a1-d1 b1 100], ...
+                            %     'Lower',[0 min(temp) 0], ...
+                            %     'Upper',[2*max(sp(searchFrequencies,timepoint)) max(temp) 2000]);
+                            mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint)-d1,'gauss1');
                             %mdl = fit(f(searchFrequencies),sp(searchFrequencies,timepoint),ft,'StartPoint',[1 200]);
                             formantSpread(formant,segment(timepoint)) = mdl.c1;
                         catch
