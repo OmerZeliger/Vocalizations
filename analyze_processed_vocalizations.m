@@ -42,6 +42,63 @@ totalPower = cellfun(@(X,T) X(T),totalPower,vocOn,'UniformOutput',false);
 peakToNoise = {allData.PeakToNoiseRatio};
 peakToNoise = cellfun(@(X,T) X(T),peakToNoise,vocOn,'UniformOutput',false);
 
+%% plot data per rat
+ratID = cellfun(@(X) strsplit(X,'_'),{allData.RecordingID},'UniformOutput',false);
+ratID = cellfun(@(X) string([X{1:2}]),ratID);
+rats = unique(ratID);
+
+propHoarse = nan(length(rats),2);
+hoarseness = propHoarse;
+%loudness = propHoarse;
+%numVocs = propHoarse;
+scar = propHoarse;
+decorin = propHoarse;
+for i = 1:length(rats)
+    ratVocs = strcmp(ratID,rats(i));
+    for j = 1:2
+        sessionVocs = ratVocs & vocalization & [allData.PostSurgery]==logical(j-1);
+        sessionVocs = find(sessionVocs);
+        
+        propHoarse(i,j) = median(cellfun(@(X) mean(X<200),peakToNoise(sessionVocs)));
+        hoarseness(i,j) = median(cellfun(@(X) median(X),peakToNoise(sessionVocs)));
+        %loudness(i,j) = median(cellfun(@(X) median(X),totalPower(useableVocs)));
+        %numVocs(i,j) = sum(sessionVocs);
+        scar(i,j) = allData(sessionVocs(1)).Treatment;
+        decorin(i,j) = allData(sessionVocs(1)).DecorinGel;
+    end
+end
+
+figure; hold on;
+for s = 0:1
+    scarVocs = scar(:,1) == s;
+    for g = 0:1
+        decorinVocs = decorin(:,1) == g;
+
+        currentVocs = scarVocs & decorinVocs;
+        position = (4*g) + s;
+
+        plot(([0 0.3] + position*ones(size(hoarseness(currentVocs,:))))',log(hoarseness(currentVocs,:))');
+    end
+end
+hold off;
+title('log median PNR');
+
+figure; hold on;
+for s = 0:1
+    scarVocs = scar(:,1) == s;
+    for g = 0:1
+        decorinVocs = decorin(:,1) == g;
+
+        currentVocs = scarVocs & decorinVocs;
+        position = (4*g) + s;
+
+        plot(([0 0.3] + position*ones(size(propHoarse(currentVocs,:))))',propHoarse(currentVocs,:)');
+    end
+end
+hold off;
+title('median time spent hoarse');
+
+
 %% plot hoarseness progression as session progresses
 sessions = unique({allData.RecordingID});
 for i = 1:length(sessions)
