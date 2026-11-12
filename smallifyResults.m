@@ -1,7 +1,7 @@
 % set up directory paths
-filepath = fileparts(which("smallifyResults.m"));
+homebase = fileparts(which("smallifyResults.m"));
 
-resultsPath = fullfile(filepath,"_results");
+resultsPath = fullfile(homebase,"_results");
 results = dir(fullfile(resultsPath,"*.mat"));
 
 largeRecordings = results([results.bytes]./1e6 > 100);
