@@ -109,12 +109,21 @@ for i = 1:length(sessions)
     subplot(1,2,1);
     medianPower = cellfun(@(X) median(X),totalPower(useableVocs));
     scatter([allData(useableVocs).StartTime],medianPower);
-    title(sessions{i});
+    title(sessions{i}, Interpreter="none");
+
+     %Make table of results per rat
+        % STARTTIME = [allData(useableVocs).StartTime];
+        % STARTTIME = STARTTIME(:);
+        % MEDIANPOW = medianPower(:);
+        % T = table(STARTTIME,MEDIANPOW);
+        % tempName = erase(sessions{i}, '.wav');
+        % xlName = append(tempName,'.xlsx');
+        % writetable(T,xlName);
 
     subplot(1,2,2);
     propHoarse = cellfun(@(X) mean(X<1000),peakToNoise(useableVocs));
     scatter([allData(useableVocs).StartTime],propHoarse);
-    title(sessions{i});
+    title(sessions{i}, Interpreter="none");
 end
 
 %% plot change in hoarseness in first 10 vocalizations vs number of vocalizations in first session
